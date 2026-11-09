@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111418" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)">
+<title>Mis Cuentas</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--bg:#f6f6f3;--card:#fff;--ink:#16181b;--muted:#7b8088;--line:#e7e7e2;--soft:#efefea;
+  --out:#c4473a;--in:#2f8a57;--acc:#16181b;--accInk:#fff;--warn:#b7791f}
+@media (prefers-color-scheme:dark){:root{--bg:#111418;--card:#181c21;--ink:#eceef0;--muted:#8d949c;--line:#262b31;--soft:#1f242a;
+  --out:#ef7f72;--in:#6fcf97;--acc:#eceef0;--accInk:#111418;--warn:#e0ae5c}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{padding:env(safe-area-inset-top) 0 calc(24px + env(safe-area-inset-bottom))}
+.wrap{max-width:520px;margin:0 auto;padding:0 16px}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0 8px}
+h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
+.hr{display:flex;gap:8px;align-items:center}
+.pill{border:1px solid var(--line);background:var(--card);color:var(--muted);font:inherit;font-size:13px;border-radius:20px;padding:6px 11px;display:flex;align-items:center;gap:6px}
+.pill .d{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.pill.ok .d{background:var(--in)}.pill.wait .d{background:var(--warn)}.pill.err .d{background:var(--out)}
+.icon{border:0;background:transparent;color:var(--ink);font-size:22px;width:38px;height:38px;border-radius:50%}
+.sum{display:flex;gap:10px;margin:6px 0 16px}
+.sum>div{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.sum .k{font-size:12px;color:var(--muted)}.sum .v{font-size:16px;font-weight:700;margin-top:2px;white-space:nowrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:16px}
+.seg{display:flex;background:var(--soft);border-radius:12px;padding:3px}
+.seg button{flex:1;border:0;background:transparent;font:inherit;font-weight:600;color:var(--muted);padding:10px;border-radius:10px}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.seg button.on[data-v=Gasto]{color:var(--out)}.seg button.on[data-v=Ingreso]{color:var(--in)}
+.amt{display:flex;align-items:center;justify-content:center;margin:18px 0 10px}
+.amt span{font-size:34px;font-weight:300;color:var(--muted);margin-right:4px}
+.amt input{border:0;outline:0;background:transparent;color:var(--ink);font:inherit;font-size:44px;font-weight:700;width:210px;text-align:left}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 12px}
+.chip{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:20px;padding:8px 12px;font:inherit;font-size:14px}
+.chip.on{background:var(--acc);color:var(--accInk);border-color:var(--acc)}
+.row{display:flex;gap:8px}
+.f{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:12px;font:inherit;font-size:15px;outline:0}
+.f:focus{border-color:var(--muted)}
+.row .f.date{flex:0 0 150px}
+.save{width:100%;border:0;border-radius:14px;background:var(--acc);color:var(--accInk);font:inherit;font-weight:700;font-size:17px;padding:15px;margin-top:12px}
+.editing{display:flex;justify-content:space-between;font-size:13px;color:var(--warn);font-weight:600;margin-bottom:10px}
+.editing button{border:0;background:none;color:inherit;font:inherit;text-decoration:underline}
+.lh{display:flex;justify-content:space-between;align-items:baseline;margin:4px 2px 6px}
+.lh b{font-size:15px}.lh small{color:var(--muted)}
+.item{display:flex;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item .i{flex:1;min-width:0}
+.item .t{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .s{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.item .m{font-weight:700;white-space:nowrap}
+.item .c{font-size:12px;color:var(--muted);width:16px;text-align:center}
+.out{color:var(--out)}.in{color:var(--in)}
+.empty{text-align:center;color:var(--muted);font-size:14px;padding:22px 0}
+.mnav{display:flex;align-items:center;gap:4px}
+.mnav button{border:0;background:none;color:var(--muted);font-size:20px;padding:0 8px}
+/* settings */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;z-index:20}
+.sheet.open{display:flex}
+.panel{background:var(--card);width:100%;max-width:520px;margin:0 auto;border-radius:20px 20px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
+.panel h2{font-size:18px;margin:0 0 4px}
+.panel label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+.panel textarea.f{min-height:84px;resize:vertical;font-size:14px}
+.btn2{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-weight:600;border-radius:12px;padding:12px;margin-top:10px}
+.note{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:6px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,16px);background:var(--acc);color:var(--accInk);padding:10px 16px;border-radius:20px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:30;white-space:nowrap}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Mis Cuentas</h1>
+    <div class="hr">
+      <button class="pill" id="sync" onclick="sync(true)"><span class="d"></span><span id="syncTxt">…</span></button>
+      <button class="icon" aria-label="Ajustes" onclick="openSettings()">⚙︎</button>
+    </div>
+  </header>
+
+  <div class="sum">
+    <div><div class="k">Ingresos</div><div class="v in" id="sIn">$0</div></div>
+    <div><div class="k">Gastos</div><div class="v out" id="sOut">$0</div></div>
+    <div><div class="k">Balance</div><div class="v" id="sBal">$0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="editing hide" id="editBar"><span>Editando movimiento</span><button onclick="resetForm()">Cancelar</button></div>
+    <div class="seg" id="tipo">
+      <button data-v="Gasto" class="on">Gasto</button>
+      <button data-v="Ingreso">Ingreso</button>
+    </div>
+    <div class="amt"><span>$</span><input id="monto" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0"></div>
+    <div class="chips" id="cats"></div>
+    <div class="row">
+      <input class="f" id="nota" type="text" placeholder="Nota (opcional)" autocomplete="off">
+      <input class="f date" id="fecha" type="date">
+    </div>
+    <button class="save" id="saveBtn" onclick="save()">Guardar</button>
+  </div>
+
+  <div class="lh">
+    <div class="mnav"><button onclick="moveMonth(-1)" aria-label="Mes anterior">‹</button><b id="mLbl"></b><button onclick="moveMonth(1)" aria-label="Mes siguiente">›</button></div>
+    <small id="mCount"></small>
+  </div>
+  <div class="card" style="padding:4px 14px"><div id="list"></div></div>
+</div>
+
+<div class="sheet" id="sheet" onclick="if(event.target===this)closeSettings()">
+  <div class="panel">
+    <h2>Ajustes</h2>
+    <p class="note">Conecta la app con tu hoja de Google “Mis Cuentas (nube)”. Solo se hace una vez.</p>
+    <label>URL de la hoja (termina en /exec)</label>
+    <input class="f" id="cfgUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+    <label>Clave</label>
+    <input class="f" id="cfgKey" type="text" autocomplete="off">
+    <button class="btn2" onclick="testConn()">Guardar y probar conexión</button>
+    <p class="note" id="connMsg"></p>
+
+    <label>Categorías de gasto (una por línea)</label>
+    <textarea class="f" id="cfgOut"></textarea>
+    <label>Categorías de ingreso (una por línea)</label>
+    <textarea class="f" id="cfgIn"></textarea>
+    <button class="btn2" onclick="saveCats()">Guardar categorías</button>
+
+    <label>Respaldo</label>
+    <button class="btn2" onclick="exportCsv()">Descargar todo (CSV para Excel)</button>
+    <button class="btn2" onclick="resyncAll()">Volver a subir todo a la nube</button>
+    <p class="note">Usa “Volver a subir todo” si borraste filas de la hoja o la cambiaste por otra. No se duplican: cada movimiento tiene un ID.</p>
+    <button class="btn2" onclick="closeSettings()" style="margin-top:18px">Cerrar</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY="miscuentas_nube_v1";
+const DEF_OUT=["Comida","Supermercado","Transporte","Gasolina","Servicios","Internet","Teléfono","Membresías","Salud","Ropa","Mascotas","Entretenimiento","Restaurantes","Deudas","Hogar","Granja","Otros"];
+const DEF_IN=["Sueldo","Venta de huevo","Ganancia granja","Otros ingresos"];
+const DEF_CFG={url:"",clave:"0fhypSaMZigN4c2JTfdG",out:DEF_OUT,in:DEF_IN};
+
+let S={records:[],queue:{},cfg:{...DEF_CFG},lastSync:null,lastErr:null};
+try{const d=JSON.parse(localStorage.getItem(KEY)||"null");if(d){S={...S,...d,cfg:{...DEF_CFG,...(d.cfg||{})}};}}catch(e){}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast("No se pudo guardar en el teléfono");}}
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}
+
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,"0");
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());};
+const money=n=>(n<0?"-":"")+"$"+Math.abs(n).toLocaleString("es-MX",{minimumFractionDigits:(Math.abs(n)%1?2:0),maximumFractionDigits:2});
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("show"),1800);}
+
+/* form */
+let tipo="Gasto",cat=null,editId=null;
+$("tipo").querySelectorAll("button").forEach(b=>b.onclick=()=>setTipo(b.dataset.v));
+function setTipo(v){tipo=v;cat=null;$("tipo").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));renderCats();}
+function renderCats(){
+  const list=tipo==="Gasto"?S.cfg.out:S.cfg.in;
+  $("cats").innerHTML=list.map(c=>`<button class="chip${c===cat?" on":""}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
+  $("cats").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{cat=b.dataset.c;renderCats();});
+}
+$("fecha").value=today();
+function save(){
+  const m=parseFloat(String($("monto").value).replace(",","."));
+  if(!(m>0)){toast("Escribe el monto");$("monto").focus();return;}
+  if(!cat){toast("Elige una categoría");return;}
+  const r={fecha:$("fecha").value||today(),tipo,categoria:cat,monto:Math.round(m*100)/100,nota:$("nota").value.trim()};
+  let id=editId;
+  if(id){const i=S.records.findIndex(x=>x.id===id);if(i>=0)S.records[i]={...S.records[i],...r};}
+  else{id=uid();S.records.push({id,creado:Date.now(),...r});}
+  enqueue(id,"upsert",r);
+  toast(editId?"Cambios guardados":"Guardado");
+  resetForm();render();sync();
+}
+function resetForm(){editId=null;$("monto").value="";$("nota").value="";$("fecha").value=today();cat=null;$("editBar").classList.add("hide");$("saveBtn").textContent="Guardar";renderCats();}
+function edit(id){
+  const r=S.records.find(x=>x.id===id);if(!r)return;
+  editId=id;setTipo(r.tipo);cat=r.categoria;renderCats();
+  $("monto").value=r.monto;$("nota").value=r.nota||"";$("fecha").value=r.fecha;
+  $("editBar").classList.remove("hide");$("saveBtn").textContent="Guardar cambios";
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function del(id){
+  if(!confirm("¿Borrar este movimiento? También se borrará de la hoja."))return;
+  S.records=S.records.filter(x=>x.id!==id);
+  enqueue(id,"delete");if(editId===id)resetForm();
+  render();sync();toast("Borrado");
+}
+
+/* list + summary */
+let vY=new Date().getFullYear(),vM=new Date().getMonth()+1;
+function moveMonth(d){vM+=d;if(vM<1){vM=12;vY--;}if(vM>12){vM=1;vY++;}render();}
+function render(){
+  const pre=vY+"-"+pad(vM);
+  const name=new Date(vY,vM-1,1).toLocaleDateString("es-MX",{month:"long"});
+  $("mLbl").textContent=name.charAt(0).toUpperCase()+name.slice(1)+" "+vY;
+  const rows=S.records.filter(r=>r.fecha.startsWith(pre)).sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.creado||0)-(a.creado||0));
+  const ins=rows.filter(r=>r.tipo==="Ingreso").reduce((s,r)=>s+r.monto,0);
+  const outs=rows.filter(r=>r.tipo==="Gasto").reduce((s,r)=>s+r.monto,0);
+  $("sIn").textContent=money(ins);$("sOut").textContent=money(outs);
+  const b=ins-outs;$("sBal").textContent=money(b);$("sBal").className="v "+(b<0?"out":"");
+  $("mCount").textContent=rows.length?rows.length+" movimiento"+(rows.length>1?"s":""):"";
+  $("list").innerHTML=rows.length?rows.map(r=>{
+    const o=r.tipo==="Gasto",pend=!!S.queue[r.id];
+    const [y,m,d]=r.fecha.split("-");
+    return `<div class="item" onclick="edit('${r.id}')">
+      <div class="i"><div class="t">${esc(r.categoria)}</div><div class="s">${d}/${m}${r.nota?" · "+esc(r.nota):""}</div></div>
+      <div class="m ${o?"out":"in"}">${o?"−":"+"}${money(r.monto)}</div>
+      <div class="c" title="${pend?"Pendiente de subir":"En la nube"}">${pend?"⏳":"☁︎"}</div>
+      <button onclick="event.stopPropagation();del('${r.id}')" aria-label="Borrar" style="border:0;background:none;color:var(--muted);font-size:18px;padding:2px 0 2px 4px">×</button>
+    </div>`;}).join(""):'<div class="empty">Sin movimientos este mes</div>';
+  syncStatus();
+}
+
+/* sync queue */
+function enqueue(id,op,r){S.queue[id]={op,r:r||null,v:Date.now()+Math.random()};persist();}
+let syncing=false;
+function syncStatus(){
+  const n=Object.keys(S.queue).length,el=$("sync");
+  el.className="pill";
+  if(!S.cfg.url){el.classList.add("err");$("syncTxt").textContent="Sin conectar";return;}
+  if(syncing){el.classList.add("wait");$("syncTxt").textContent="Subiendo…";return;}
+  if(n){el.classList.add("wait");$("syncTxt").textContent=n+" por subir";return;}
+  el.classList.add("ok");$("syncTxt").textContent="En la nube";
+}
+async function sync(manual){
+  if(syncing)return;
+  if(!S.cfg.url){if(manual)openSettings();syncStatus();return;}
+  const ids=Object.keys(S.queue);
+  if(!ids.length){syncStatus();if(manual)toast("Todo está en la nube");return;}
+  if(!navigator.onLine){syncStatus();if(manual)toast("Sin internet: se subirá después");return;}
+  syncing=true;syncStatus();
+  try{
+    while(true){
+      const batch=Object.keys(S.queue).slice(0,100);if(!batch.length)break;
+      const sent={};const ops=batch.map(id=>{sent[id]=S.queue[id].v;return{id,op:S.queue[id].op,r:S.queue[id].r};});
+      const res=await fetch(S.cfg.url,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({clave:S.cfg.clave,ops})});
+      const j=await res.json();
+      if(!j.ok)throw new Error(j.error||"Error de la hoja");
+      (j.hechos||[]).forEach(id=>{if(S.queue[id]&&S.queue[id].v===sent[id])delete S.queue[id];});
+      S.lastSync=Date.now();S.lastErr=null;persist();
+      if((j.hechos||[]).length===0)break;
+    }
+    if(manual)toast("Todo está en la nube");
+  }catch(e){S.lastErr=String(e.message||e);persist();if(manual)toast("No se pudo subir: "+S.lastErr);}
+  syncing=false;render();
+}
+addEventListener("online",()=>sync());
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync();});
+setInterval(()=>sync(),60000);
+
+/* settings */
+function openSettings(){
+  $("cfgUrl").value=S.cfg.url;$("cfgKey").value=S.cfg.clave;
+  $("cfgOut").value=S.cfg.out.join("\n");$("cfgIn").value=S.cfg.in.join("\n");
+  $("connMsg").textContent=S.lastErr?"Último error: "+S.lastErr:(S.lastSync?"Última subida: "+new Date(S.lastSync).toLocaleString("es-MX"):"");
+  $("sheet").classList.add("open");
+}
+function closeSettings(){$("sheet").classList.remove("open");}
+async function testConn(){
+  S.cfg.url=$("cfgUrl").value.trim();S.cfg.clave=$("cfgKey").value.trim();persist();
+  if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(S.cfg.url)){$("connMsg").textContent="La URL debe empezar con https://script.google.com/";syncStatus();return;}
+  $("connMsg").textContent="Probando…";
+  try{
+    const res=await fetch(S.cfg.url,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({clave:S.cfg.clave,ops:[]})});
+    const j=await res.json();
+    $("connMsg").textContent=j.ok?"✓ Conectado con tu hoja. Tus movimientos se subirán solos.":"✗ "+(j.error||"Respuesta inesperada");
+    if(j.ok){S.lastErr=null;persist();sync();}
+  }catch(e){$("connMsg").textContent="✗ No se pudo conectar. Revisa la URL y que tengas internet.";}
+  syncStatus();
+}
+function saveCats(){
+  const clean=t=>[...new Set(t.split("\n").map(s=>s.trim()).filter(Boolean))];
+  const o=clean($("cfgOut").value),i=clean($("cfgIn").value);
+  if(!o.length||!i.length){toast("Deja al menos una categoría");return;}
+  S.cfg.out=o;S.cfg.in=i;persist();cat=null;renderCats();toast("Categorías guardadas");
+}
+function resyncAll(){
+  if(!confirm("Se volverán a enviar todos tus movimientos a la hoja. ¿Continuar?"))return;
+  S.records.forEach(r=>enqueue(r.id,"upsert",{fecha:r.fecha,tipo:r.tipo,categoria:r.categoria,monto:r.monto,nota:r.nota}));
+  render();sync(true);
+}
+function exportCsv(){
+  const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+  const rows=[["ID","Fecha","Tipo","Categoría","Monto","Nota"],...[...S.records].sort((a,b)=>a.fecha.localeCompare(b.fecha)).map(r=>{const[y,m,d]=r.fecha.split("-");return[r.id,`${d}/${m}/${y}`,r.tipo,r.categoria,r.monto,r.nota||""];})];
+  const blob=new Blob(["﻿"+rows.map(r=>r.map(q).join(",")).join("\r\n")],{type:"text/csv"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="MisCuentas_"+today()+".csv";document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+}
+
+renderCats();render();sync();
+if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+</body>
+</html>
