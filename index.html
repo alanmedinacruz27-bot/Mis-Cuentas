@@ -272,6 +272,9 @@ function render(){
 /* vista: movimientos / me deben */
 let vista="mov";
 function setVista(v){
+  if(v===vista)return;
+  if(v==="deu"&&editId)resetForm();
+  if(v==="mov"&&dEditId)dReset();
   vista=v;
   $("vMov").classList.toggle("hide",v!=="mov");$("vDeu").classList.toggle("hide",v!=="deu");
   if(v==="deu")dRender();
@@ -354,7 +357,7 @@ function dRender(){
     const det=pag>0?(saldo>0?` · abonó ${money(pag)} de ${money(d.monto)}`:` · pagó ${money(d.monto)}`):"";
     return `<div class="item${saldo<=0?" paid":""}" onclick="dEdit('${d.id}')">
       <div class="i"><div class="t">${esc(d.persona)}</div><div class="s">${dd}/${m}/${y}${d.nota?" · "+esc(d.nota):""}${det}</div></div>
-      <div class="m" style="color:var(--warn)">${money(saldo>0?saldo:d.monto)}</div>
+      <div class="m"${saldo>0?' style="color:var(--warn)"':""}>${money(saldo>0?saldo:d.monto)}</div>
       ${saldo>0?`<button class="mini" onclick="event.stopPropagation();dAbonar('${d.id}')">Abonar</button>`
                :`<button class="mini" onclick="event.stopPropagation();dDeshacerAbono('${d.id}')">Deshacer</button>`}
       <div class="c" title="${pendSync?"Pendiente de subir":"En la nube"}">${pendSync?"⏳":"☁︎"}</div>
