@@ -70,6 +70,15 @@ h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,16px);background:var(--acc);color:var(--accInk);padding:10px 16px;border-radius:20px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:30;white-space:nowrap}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .hide{display:none!important}
+/* deudas */
+.tabs{margin:4px 0 14px}
+.seg button.on[data-v=deu]{color:var(--warn)}
+.seg button{padding:10px 4px}
+.f.grow{flex:1}
+.mini{border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:6px 10px;white-space:nowrap}
+.pp{display:flex;justify-content:space-between;padding:7px 2px;font-size:14px;border-bottom:1px solid var(--line)}
+.pp:last-child{border-bottom:0}
+.paid .t,.paid .m{text-decoration:line-through;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -82,6 +91,7 @@ h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
     </div>
   </header>
 
+  <div id="vMov">
   <div class="sum">
     <div><div class="k">Ingresos</div><div class="v in" id="sIn">$0</div></div>
     <div><div class="k">Gastos</div><div class="v out" id="sOut">$0</div></div>
@@ -93,6 +103,7 @@ h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
     <div class="seg" id="tipo">
       <button data-v="Gasto" class="on">Gasto</button>
       <button data-v="Ingreso">Ingreso</button>
+      <button data-v="deu">Me deben</button>
     </div>
     <div class="amt"><span>$</span><input id="monto" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0"></div>
     <div class="chips" id="cats"></div>
@@ -108,6 +119,43 @@ h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
     <small id="mCount"></small>
   </div>
   <div class="card" style="padding:4px 14px"><div id="list"></div></div>
+  </div>
+
+  <div id="vDeu" class="hide">
+    <div class="sum">
+      <div><div class="k">Me deben</div><div class="v" style="color:var(--warn)" id="dTot">$0</div></div>
+      <div><div class="k">Personas</div><div class="v" id="dPer">0</div></div>
+      <div><div class="k">Ya cobrado</div><div class="v in" id="dCob">$0</div></div>
+    </div>
+
+    <div class="card">
+      <div class="editing hide" id="dEditBar"><span>Editando deuda</span><button onclick="dReset()">Cancelar</button></div>
+      <div class="seg" id="tipo2" style="margin-bottom:14px">
+        <button data-v="Gasto">Gasto</button>
+        <button data-v="Ingreso">Ingreso</button>
+        <button data-v="deu" class="on">Me deben</button>
+      </div>
+      <input class="f" id="dPersona" type="text" placeholder="¿Quién te debe?" list="dNombres" autocomplete="off">
+      <datalist id="dNombres"></datalist>
+      <div class="amt"><span>$</span><input id="dMonto" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0"></div>
+      <div class="row">
+        <input class="f" id="dNota" type="text" placeholder="Concepto (opcional)" autocomplete="off">
+        <input class="f date" id="dFecha" type="date">
+      </div>
+      <button class="save" id="dSaveBtn" onclick="dSave()">Guardar deuda</button>
+    </div>
+
+    <div class="card hide" id="dPorPersona" style="padding:8px 14px"></div>
+
+    <div class="lh">
+      <div class="chips" id="dFiltro" style="margin:0">
+        <button class="chip on" data-v="pend">Pendientes</button>
+        <button class="chip" data-v="pag">Pagadas</button>
+      </div>
+      <small id="dCount"></small>
+    </div>
+    <div class="card" style="padding:4px 14px"><div id="dList"></div></div>
+  </div>
 </div>
 
 <div class="sheet" id="sheet" onclick="if(event.target===this)closeSettings()">
@@ -129,6 +177,7 @@ h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
 
     <label>Respaldo</label>
     <button class="btn2" onclick="exportCsv()">Descargar todo (CSV para Excel)</button>
+    <button class="btn2" onclick="exportDeudasCsv()">Descargar “Me deben” (CSV)</button>
     <button class="btn2" onclick="resyncAll()">Volver a subir todo a la nube</button>
     <p class="note">Usa “Volver a subir todo” si borraste filas de la hoja o la cambiaste por otra. No se duplican: cada movimiento tiene un ID.</p>
     <button class="btn2" onclick="closeSettings()" style="margin-top:18px">Cerrar</button>
@@ -142,7 +191,7 @@ const DEF_OUT=["Comida","Supermercado","Transporte","Gasolina","Servicios","Inte
 const DEF_IN=["Sueldo","Venta de huevo","Ganancia granja","Otros ingresos"];
 const DEF_CFG={url:"",clave:"0fhypSaMZigN4c2JTfdG",out:DEF_OUT,in:DEF_IN};
 
-let S={records:[],queue:{},cfg:{...DEF_CFG},lastSync:null,lastErr:null};
+let S={records:[],queue:{},deudas:[],dqueue:{},cfg:{...DEF_CFG},lastSync:null,lastErr:null};
 try{const d=JSON.parse(localStorage.getItem(KEY)||"null");if(d){S={...S,...d,cfg:{...DEF_CFG,...(d.cfg||{})}};}}catch(e){}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast("No se pudo guardar en el teléfono");}}
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}
@@ -157,7 +206,10 @@ function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");cle
 
 /* form */
 let tipo="Gasto",cat=null,editId=null;
-$("tipo").querySelectorAll("button").forEach(b=>b.onclick=()=>setTipo(b.dataset.v));
+["tipo","tipo2"].forEach(g=>$(g).querySelectorAll("button").forEach(b=>b.onclick=()=>{
+  if(b.dataset.v==="deu"){setVista("deu");return;}
+  setVista("mov");setTipo(b.dataset.v);
+}));
 function setTipo(v){tipo=v;cat=null;$("tipo").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));renderCats();}
 function renderCats(){
   const list=tipo==="Gasto"?S.cfg.out:S.cfg.in;
@@ -217,11 +269,105 @@ function render(){
   syncStatus();
 }
 
+/* vista: movimientos / me deben */
+let vista="mov";
+function setVista(v){
+  vista=v;
+  $("vMov").classList.toggle("hide",v!=="mov");$("vDeu").classList.toggle("hide",v!=="deu");
+  if(v==="deu")dRender();
+}
+
+/* me deben */
+let dEditId=null,dFiltro="pend";
+$("dFecha").value=today();
+$("dFiltro").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{dFiltro=b.dataset.v;$("dFiltro").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===b));dRender();});
+const dPagado=d=>(d.abonos||[]).reduce((s,a)=>s+a.m,0);
+const dSaldo=d=>Math.round((d.monto-dPagado(d))*100)/100;
+function dPayload(d){
+  const pag=Math.round(dPagado(d)*100)/100;
+  return{persona:d.persona,fecha:d.fecha,monto:d.monto,pagado:pag,nota:d.nota||"",
+    abonos:(d.abonos||[]).map(a=>{const[y,m,dd]=a.f.split("-");return`${dd}/${m}/${y} ${money(a.m)}`;}).join("; ")};
+}
+function dEnqueue(id,op,d){S.dqueue[id]={op,r:d?dPayload(d):null,v:Date.now()+Math.random()};persist();}
+function dSave(){
+  const persona=$("dPersona").value.trim();
+  const m=parseFloat(String($("dMonto").value).replace(",","."));
+  if(!persona){toast("Escribe el nombre");$("dPersona").focus();return;}
+  if(!(m>0)){toast("Escribe el monto");$("dMonto").focus();return;}
+  const r={persona,monto:Math.round(m*100)/100,fecha:$("dFecha").value||today(),nota:$("dNota").value.trim()};
+  let d;
+  if(dEditId){d=S.deudas.find(x=>x.id===dEditId);if(d)Object.assign(d,r);}
+  if(!d){d={id:"d_"+uid(),creado:Date.now(),abonos:[],...r};S.deudas.push(d);}
+  dEnqueue(d.id,"upsert",d);
+  toast(dEditId?"Cambios guardados":"Deuda guardada");
+  dReset();dRender();sync();
+}
+function dReset(){dEditId=null;$("dPersona").value="";$("dMonto").value="";$("dNota").value="";$("dFecha").value=today();$("dEditBar").classList.add("hide");$("dSaveBtn").textContent="Guardar deuda";}
+function dEdit(id){
+  const d=S.deudas.find(x=>x.id===id);if(!d)return;
+  dEditId=id;$("dPersona").value=d.persona;$("dMonto").value=d.monto;$("dNota").value=d.nota||"";$("dFecha").value=d.fecha;
+  $("dEditBar").classList.remove("hide");$("dSaveBtn").textContent="Guardar cambios";
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function dAbonar(id){
+  const d=S.deudas.find(x=>x.id===id);if(!d)return;
+  const saldo=dSaldo(d);
+  const t=prompt(`¿Cuánto te pagó ${d.persona}? (debe ${money(saldo)})`,saldo);
+  if(t===null)return;
+  const m=Math.round(parseFloat(String(t).replace(",","."))*100)/100;
+  if(!(m>0)){toast("Monto no válido");return;}
+  if(m>saldo&&!confirm(`Es más de lo que debe (${money(saldo)}). ¿Registrarlo de todos modos?`))return;
+  d.abonos=[...(d.abonos||[]),{f:today(),m}];
+  dEnqueue(d.id,"upsert",d);
+  toast(dSaldo(d)<=0?"¡Deuda saldada!":"Abono registrado");
+  dRender();sync();
+}
+function dDeshacerAbono(id){
+  const d=S.deudas.find(x=>x.id===id);if(!d||!(d.abonos||[]).length)return;
+  const a=d.abonos[d.abonos.length-1];
+  if(!confirm(`¿Quitar el último abono de ${money(a.m)}?`))return;
+  d.abonos=d.abonos.slice(0,-1);dEnqueue(d.id,"upsert",d);dRender();sync();
+}
+function dDel(id){
+  if(!confirm("¿Borrar esta deuda? También se borrará de la hoja."))return;
+  S.deudas=S.deudas.filter(x=>x.id!==id);
+  dEnqueue(id,"delete");if(dEditId===id)dReset();
+  dRender();sync();toast("Borrada");
+}
+function dRender(){
+  const pend=S.deudas.filter(d=>dSaldo(d)>0);
+  const tot=pend.reduce((s,d)=>s+dSaldo(d),0);
+  const cob=S.deudas.reduce((s,d)=>s+dPagado(d),0);
+  const porP={};pend.forEach(d=>{porP[d.persona]=(porP[d.persona]||0)+dSaldo(d);});
+  const nombres=Object.keys(porP).sort((a,b)=>porP[b]-porP[a]);
+  $("dTot").textContent=money(tot);$("dPer").textContent=nombres.length;$("dCob").textContent=money(cob);
+  $("dNombres").innerHTML=[...new Set(S.deudas.map(d=>d.persona))].map(n=>`<option value="${esc(n)}">`).join("");
+  const pp=$("dPorPersona");
+  pp.classList.toggle("hide",nombres.length<2);
+  pp.innerHTML=nombres.map(n=>`<div class="pp"><span>${esc(n)}</span><b style="color:var(--warn)">${money(porP[n])}</b></div>`).join("");
+  const rows=(dFiltro==="pend"?pend:S.deudas.filter(d=>dSaldo(d)<=0))
+    .sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.creado||0)-(a.creado||0));
+  $("dCount").textContent=rows.length?rows.length+" deuda"+(rows.length>1?"s":""):"";
+  $("dList").innerHTML=rows.length?rows.map(d=>{
+    const saldo=dSaldo(d),pag=dPagado(d),pendSync=!!S.dqueue[d.id];
+    const [y,m,dd]=d.fecha.split("-");
+    const det=pag>0?(saldo>0?` · abonó ${money(pag)} de ${money(d.monto)}`:` · pagó ${money(d.monto)}`):"";
+    return `<div class="item${saldo<=0?" paid":""}" onclick="dEdit('${d.id}')">
+      <div class="i"><div class="t">${esc(d.persona)}</div><div class="s">${dd}/${m}/${y}${d.nota?" · "+esc(d.nota):""}${det}</div></div>
+      <div class="m" style="color:var(--warn)">${money(saldo>0?saldo:d.monto)}</div>
+      ${saldo>0?`<button class="mini" onclick="event.stopPropagation();dAbonar('${d.id}')">Abonar</button>`
+               :`<button class="mini" onclick="event.stopPropagation();dDeshacerAbono('${d.id}')">Deshacer</button>`}
+      <div class="c" title="${pendSync?"Pendiente de subir":"En la nube"}">${pendSync?"⏳":"☁︎"}</div>
+      <button onclick="event.stopPropagation();dDel('${d.id}')" aria-label="Borrar" style="border:0;background:none;color:var(--muted);font-size:18px;padding:2px 0 2px 4px">×</button>
+    </div>`;}).join(""):`<div class="empty">${dFiltro==="pend"?"Nadie te debe nada 🎉":"Aún no hay deudas pagadas"}</div>`;
+  syncStatus();
+}
+
 /* sync queue */
 function enqueue(id,op,r){S.queue[id]={op,r:r||null,v:Date.now()+Math.random()};persist();}
 let syncing=false;
 function syncStatus(){
-  const n=Object.keys(S.queue).length,el=$("sync");
+  const n=Object.keys(S.queue).length+Object.keys(S.dqueue).length,el=$("sync");
   el.className="pill";
   if(!S.cfg.url){el.classList.add("err");$("syncTxt").textContent="Sin conectar";return;}
   if(syncing){el.classList.add("wait");$("syncTxt").textContent="Subiendo…";return;}
@@ -231,24 +377,34 @@ function syncStatus(){
 async function sync(manual){
   if(syncing)return;
   if(!S.cfg.url){if(manual)openSettings();syncStatus();return;}
-  const ids=Object.keys(S.queue);
-  if(!ids.length){syncStatus();if(manual)toast("Todo está en la nube");return;}
+  const ids=Object.keys(S.queue).length+Object.keys(S.dqueue).length;
+  if(!ids){syncStatus();if(manual)toast("Todo está en la nube");return;}
   if(!navigator.onLine){syncStatus();if(manual)toast("Sin internet: se subirá después");return;}
   syncing=true;syncStatus();
-  try{
+  const post=async body=>{
+    const res=await fetch(S.cfg.url,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({clave:S.cfg.clave,...body})});
+    const j=await res.json();if(!j.ok)throw new Error(j.error||"Error de la hoja");return j;
+  };
+  const subir=async(q,extra)=>{
     while(true){
-      const batch=Object.keys(S.queue).slice(0,100);if(!batch.length)break;
-      const sent={};const ops=batch.map(id=>{sent[id]=S.queue[id].v;return{id,op:S.queue[id].op,r:S.queue[id].r};});
-      const res=await fetch(S.cfg.url,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({clave:S.cfg.clave,ops})});
-      const j=await res.json();
-      if(!j.ok)throw new Error(j.error||"Error de la hoja");
-      (j.hechos||[]).forEach(id=>{if(S.queue[id]&&S.queue[id].v===sent[id])delete S.queue[id];});
+      const batch=Object.keys(q).slice(0,100);if(!batch.length)break;
+      const sent={};const ops=batch.map(id=>{sent[id]=q[id].v;return{id,op:q[id].op,r:q[id].r};});
+      const j=await post({...extra,ops});
+      (j.hechos||[]).forEach(id=>{if(q[id]&&q[id].v===sent[id])delete q[id];});
       S.lastSync=Date.now();S.lastErr=null;persist();
       if((j.hechos||[]).length===0)break;
     }
+  };
+  try{
+    await subir(S.queue,{});
+    if(Object.keys(S.dqueue).length){
+      const ping=await post({ops:[]});
+      if(!(ping.version>=2))throw new Error("actualiza el código de tu hoja (Codigo_hoja.gs) para guardar “Me deben”");
+      await subir(S.dqueue,{hoja:"deudas"});
+    }
     if(manual)toast("Todo está en la nube");
   }catch(e){S.lastErr=String(e.message||e);persist();if(manual)toast("No se pudo subir: "+S.lastErr);}
-  syncing=false;render();
+  syncing=false;render();if(vista==="deu")dRender();
 }
 addEventListener("online",()=>sync());
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync();});
@@ -283,7 +439,17 @@ function saveCats(){
 function resyncAll(){
   if(!confirm("Se volverán a enviar todos tus movimientos a la hoja. ¿Continuar?"))return;
   S.records.forEach(r=>enqueue(r.id,"upsert",{fecha:r.fecha,tipo:r.tipo,categoria:r.categoria,monto:r.monto,nota:r.nota}));
+  S.deudas.forEach(d=>dEnqueue(d.id,"upsert",d));
   render();sync(true);
+}
+function exportDeudasCsv(){
+  const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+  const rows=[["ID","Persona","Fecha","Monto","Abonado","Saldo","Estado","Concepto","Abonos"],...[...S.deudas].sort((a,b)=>a.fecha.localeCompare(b.fecha)).map(d=>{
+    const p=dPayload(d),[y,m,dd]=d.fecha.split("-"),s=dSaldo(d);
+    return[d.id,`${dd}/${m}/${y}`,d.persona,d.monto,p.pagado,s,s>0?"Pendiente":"Pagada",d.nota||"",p.abonos];})];
+  const blob=new Blob(["﻿"+rows.map(r=>r.map(q).join(",")).join("\r\n")],{type:"text/csv"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="MeDeben_"+today()+".csv";document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
 }
 function exportCsv(){
   const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
