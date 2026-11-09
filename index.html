@@ -72,8 +72,8 @@ h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
 .hide{display:none!important}
 /* deudas */
 .tabs{margin:4px 0 14px}
-.seg button.on[data-v=deu]{color:var(--warn)}
-.seg button{padding:10px 4px}
+.seg button.on[data-v=deu]{color:var(--warn)}.seg button.on[data-v=debo]{color:var(--out)}
+.seg button{padding:10px 2px;font-size:14px}
 .f.grow{flex:1}
 .mini{border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:6px 10px;white-space:nowrap}
 .pp{display:flex;justify-content:space-between;padding:7px 2px;font-size:14px;border-bottom:1px solid var(--line)}
@@ -104,6 +104,7 @@ h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
       <button data-v="Gasto" class="on">Gasto</button>
       <button data-v="Ingreso">Ingreso</button>
       <button data-v="deu">Me deben</button>
+      <button data-v="debo">Debo</button>
     </div>
     <div class="amt"><span>$</span><input id="monto" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0"></div>
     <div class="chips" id="cats"></div>
@@ -123,9 +124,9 @@ h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
 
   <div id="vDeu" class="hide">
     <div class="sum">
-      <div><div class="k">Me deben</div><div class="v" style="color:var(--warn)" id="dTot">$0</div></div>
-      <div><div class="k">Personas</div><div class="v" id="dPer">0</div></div>
-      <div><div class="k">Ya cobrado</div><div class="v in" id="dCob">$0</div></div>
+      <div><div class="k" id="dTotK">Me deben</div><div class="v" style="color:var(--warn)" id="dTot">$0</div></div>
+      <div><div class="k" id="dPerK">Personas</div><div class="v" id="dPer">0</div></div>
+      <div><div class="k" id="dCobK">Ya cobrado</div><div class="v in" id="dCob">$0</div></div>
     </div>
 
     <div class="card">
@@ -134,9 +135,11 @@ h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
         <button data-v="Gasto">Gasto</button>
         <button data-v="Ingreso">Ingreso</button>
         <button data-v="deu" class="on">Me deben</button>
+        <button data-v="debo">Debo</button>
       </div>
       <input class="f" id="dPersona" type="text" placeholder="¿Quién te debe?" list="dNombres" autocomplete="off">
       <datalist id="dNombres"></datalist>
+      <div class="chips hide" id="dTipos" style="margin:12px 0 0"></div>
       <div class="amt"><span>$</span><input id="dMonto" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0"></div>
       <div class="row">
         <input class="f" id="dNota" type="text" placeholder="Concepto (opcional)" autocomplete="off">
@@ -177,7 +180,7 @@ h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
 
     <label>Respaldo</label>
     <button class="btn2" onclick="exportCsv()">Descargar todo (CSV para Excel)</button>
-    <button class="btn2" onclick="exportDeudasCsv()">Descargar “Me deben” (CSV)</button>
+    <button class="btn2" onclick="exportDeudasCsv()">Descargar “Me deben” y “Debo” (CSV)</button>
     <button class="btn2" onclick="resyncAll()">Volver a subir todo a la nube</button>
     <p class="note">Usa “Volver a subir todo” si borraste filas de la hoja o la cambiaste por otra. No se duplican: cada movimiento tiene un ID.</p>
     <button class="btn2" onclick="closeSettings()" style="margin-top:18px">Cerrar</button>
@@ -191,7 +194,7 @@ const DEF_OUT=["Comida","Supermercado","Transporte","Gasolina","Servicios","Inte
 const DEF_IN=["Sueldo","Venta de huevo","Ganancia granja","Otros ingresos"];
 const DEF_CFG={url:"",clave:"0fhypSaMZigN4c2JTfdG",out:DEF_OUT,in:DEF_IN};
 
-let S={records:[],queue:{},deudas:[],dqueue:{},cfg:{...DEF_CFG},lastSync:null,lastErr:null};
+let S={records:[],queue:{},deudas:[],dqueue:{},bqueue:{},cfg:{...DEF_CFG},lastSync:null,lastErr:null};
 try{const d=JSON.parse(localStorage.getItem(KEY)||"null");if(d){S={...S,...d,cfg:{...DEF_CFG,...(d.cfg||{})}};}}catch(e){}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast("No se pudo guardar en el teléfono");}}
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}
@@ -207,7 +210,7 @@ function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");cle
 /* form */
 let tipo="Gasto",cat=null,editId=null;
 ["tipo","tipo2"].forEach(g=>$(g).querySelectorAll("button").forEach(b=>b.onclick=()=>{
-  if(b.dataset.v==="deu"){setVista("deu");return;}
+  if(b.dataset.v==="deu"||b.dataset.v==="debo"){setVista(b.dataset.v);return;}
   setVista("mov");setTipo(b.dataset.v);
 }));
 function setTipo(v){tipo=v;cat=null;$("tipo").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));renderCats();}
@@ -269,59 +272,77 @@ function render(){
   syncStatus();
 }
 
-/* vista: movimientos / me deben */
+/* vista: movimientos / me deben / debo */
 let vista="mov";
 function setVista(v){
   if(v===vista)return;
-  if(v==="deu"&&editId)resetForm();
-  if(v==="mov"&&dEditId)dReset();
+  if(v!=="mov"&&editId)resetForm();
+  if(dEditId)dReset();
   vista=v;
-  $("vMov").classList.toggle("hide",v!=="mov");$("vDeu").classList.toggle("hide",v!=="deu");
-  if(v==="deu")dRender();
+  $("vMov").classList.toggle("hide",v!=="mov");$("vDeu").classList.toggle("hide",v==="mov");
+  if(v!=="mov"){dFiltro="pend";$("dFiltro").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.v==="pend"));dRender();window.scrollTo({top:0});}
 }
 
-/* me deben */
-let dEditId=null,dFiltro="pend";
+/* me deben (dir "me") y debo (dir "debo") */
+const DTIPOS=["Proveedor","Familia","Persona"];
+const DTXT={
+  deu:{tot:"Me deben",per:"Personas",cob:"Ya cobrado",quien:"¿Quién te debe?",color:"var(--warn)",
+       vacio:"Nadie te debe nada 🎉",preg:(n,s)=>`¿Cuánto te pagó ${n}? (debe ${money(s)})`,mas:"Es más de lo que debe",
+       abono:(p,t)=>`abonó ${money(p)} de ${money(t)}`,pago:t=>`pagó ${money(t)}`},
+  debo:{tot:"Debo",per:"Acreedores",cob:"Ya pagado",quien:"¿A quién le debes?",color:"var(--out)",
+       vacio:"No le debes a nadie 🎉",preg:(n,s)=>`¿Cuánto le pagaste a ${n}? (le debes ${money(s)})`,mas:"Es más de lo que le debes",
+       abono:(p,t)=>`pagaste ${money(p)} de ${money(t)}`,pago:t=>`pagaste ${money(t)}`}
+};
+const esDebo=d=>d.dir==="debo";
+const dQ=d=>esDebo(d)?S.bqueue:S.dqueue;
+let dEditId=null,dFiltro="pend",dTipo=null;
 $("dFecha").value=today();
 $("dFiltro").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{dFiltro=b.dataset.v;$("dFiltro").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===b));dRender();});
+function renderDTipos(){
+  $("dTipos").innerHTML=DTIPOS.map(c=>`<button class="chip${c===dTipo?" on":""}" data-c="${c}">${c}</button>`).join("");
+  $("dTipos").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{dTipo=b.dataset.c;renderDTipos();});
+}
 const dPagado=d=>(d.abonos||[]).reduce((s,a)=>s+a.m,0);
 const dSaldo=d=>Math.round((d.monto-dPagado(d))*100)/100;
 function dPayload(d){
   const pag=Math.round(dPagado(d)*100)/100;
-  return{persona:d.persona,fecha:d.fecha,monto:d.monto,pagado:pag,nota:d.nota||"",
+  return{persona:d.persona,tipo:d.tipo||"",fecha:d.fecha,monto:d.monto,pagado:pag,nota:d.nota||"",
     abonos:(d.abonos||[]).map(a=>{const[y,m,dd]=a.f.split("-");return`${dd}/${m}/${y} ${money(a.m)}`;}).join("; ")};
 }
-function dEnqueue(id,op,d){S.dqueue[id]={op,r:d?dPayload(d):null,v:Date.now()+Math.random()};persist();}
+function dEnqueue(d,op){dQ(d)[d.id]={op,r:op==="delete"?null:dPayload(d),v:Date.now()+Math.random()};persist();}
 function dSave(){
   const persona=$("dPersona").value.trim();
   const m=parseFloat(String($("dMonto").value).replace(",","."));
   if(!persona){toast("Escribe el nombre");$("dPersona").focus();return;}
   if(!(m>0)){toast("Escribe el monto");$("dMonto").focus();return;}
+  if(vista==="debo"&&!dTipo){toast("Elige: proveedor, familia o persona");return;}
   const r={persona,monto:Math.round(m*100)/100,fecha:$("dFecha").value||today(),nota:$("dNota").value.trim()};
+  if(vista==="debo")r.tipo=dTipo;
   let d;
   if(dEditId){d=S.deudas.find(x=>x.id===dEditId);if(d)Object.assign(d,r);}
-  if(!d){d={id:"d_"+uid(),creado:Date.now(),abonos:[],...r};S.deudas.push(d);}
-  dEnqueue(d.id,"upsert",d);
+  if(!d){d={id:(vista==="debo"?"b_":"d_")+uid(),creado:Date.now(),abonos:[],...r};if(vista==="debo")d.dir="debo";S.deudas.push(d);}
+  dEnqueue(d,"upsert");
   toast(dEditId?"Cambios guardados":"Deuda guardada");
   dReset();dRender();sync();
 }
-function dReset(){dEditId=null;$("dPersona").value="";$("dMonto").value="";$("dNota").value="";$("dFecha").value=today();$("dEditBar").classList.add("hide");$("dSaveBtn").textContent="Guardar deuda";}
+function dReset(){dEditId=null;dTipo=null;$("dPersona").value="";$("dMonto").value="";$("dNota").value="";$("dFecha").value=today();$("dEditBar").classList.add("hide");$("dSaveBtn").textContent="Guardar deuda";renderDTipos();}
 function dEdit(id){
   const d=S.deudas.find(x=>x.id===id);if(!d)return;
-  dEditId=id;$("dPersona").value=d.persona;$("dMonto").value=d.monto;$("dNota").value=d.nota||"";$("dFecha").value=d.fecha;
+  dEditId=id;dTipo=d.tipo||null;renderDTipos();
+  $("dPersona").value=d.persona;$("dMonto").value=d.monto;$("dNota").value=d.nota||"";$("dFecha").value=d.fecha;
   $("dEditBar").classList.remove("hide");$("dSaveBtn").textContent="Guardar cambios";
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function dAbonar(id){
   const d=S.deudas.find(x=>x.id===id);if(!d)return;
-  const saldo=dSaldo(d);
-  const t=prompt(`¿Cuánto te pagó ${d.persona}? (debe ${money(saldo)})`,saldo);
+  const T=DTXT[esDebo(d)?"debo":"deu"],saldo=dSaldo(d);
+  const t=prompt(T.preg(d.persona,saldo),saldo);
   if(t===null)return;
   const m=Math.round(parseFloat(String(t).replace(",","."))*100)/100;
   if(!(m>0)){toast("Monto no válido");return;}
-  if(m>saldo&&!confirm(`Es más de lo que debe (${money(saldo)}). ¿Registrarlo de todos modos?`))return;
+  if(m>saldo&&!confirm(`${T.mas} (${money(saldo)}). ¿Registrarlo de todos modos?`))return;
   d.abonos=[...(d.abonos||[]),{f:today(),m}];
-  dEnqueue(d.id,"upsert",d);
+  dEnqueue(d,"upsert");
   toast(dSaldo(d)<=0?"¡Deuda saldada!":"Abono registrado");
   dRender();sync();
 }
@@ -329,40 +350,48 @@ function dDeshacerAbono(id){
   const d=S.deudas.find(x=>x.id===id);if(!d||!(d.abonos||[]).length)return;
   const a=d.abonos[d.abonos.length-1];
   if(!confirm(`¿Quitar el último abono de ${money(a.m)}?`))return;
-  d.abonos=d.abonos.slice(0,-1);dEnqueue(d.id,"upsert",d);dRender();sync();
+  d.abonos=d.abonos.slice(0,-1);dEnqueue(d,"upsert");dRender();sync();
 }
 function dDel(id){
+  const d=S.deudas.find(x=>x.id===id);if(!d)return;
   if(!confirm("¿Borrar esta deuda? También se borrará de la hoja."))return;
   S.deudas=S.deudas.filter(x=>x.id!==id);
-  dEnqueue(id,"delete");if(dEditId===id)dReset();
+  dEnqueue(d,"delete");if(dEditId===id)dReset();
   dRender();sync();toast("Borrada");
 }
 function dRender(){
-  const pend=S.deudas.filter(d=>dSaldo(d)>0);
+  const modo=vista==="debo"?"debo":"deu",T=DTXT[modo];
+  const mias=S.deudas.filter(d=>(modo==="debo")===esDebo(d));
+  $("vDeu").dataset.modo=modo;
+  $("tipo2").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===modo));
+  $("dTotK").textContent=T.tot;$("dPerK").textContent=T.per;$("dCobK").textContent=T.cob;
+  $("dPersona").placeholder=T.quien;$("dTot").style.color=T.color;
+  $("dTipos").classList.toggle("hide",modo!=="debo");
+  const pend=mias.filter(d=>dSaldo(d)>0);
   const tot=pend.reduce((s,d)=>s+dSaldo(d),0);
-  const cob=S.deudas.reduce((s,d)=>s+dPagado(d),0);
+  const cob=mias.reduce((s,d)=>s+dPagado(d),0);
   const porP={};pend.forEach(d=>{porP[d.persona]=(porP[d.persona]||0)+dSaldo(d);});
   const nombres=Object.keys(porP).sort((a,b)=>porP[b]-porP[a]);
   $("dTot").textContent=money(tot);$("dPer").textContent=nombres.length;$("dCob").textContent=money(cob);
-  $("dNombres").innerHTML=[...new Set(S.deudas.map(d=>d.persona))].map(n=>`<option value="${esc(n)}">`).join("");
+  $("dNombres").innerHTML=[...new Set(mias.map(d=>d.persona))].map(n=>`<option value="${esc(n)}">`).join("");
   const pp=$("dPorPersona");
   pp.classList.toggle("hide",nombres.length<2);
-  pp.innerHTML=nombres.map(n=>`<div class="pp"><span>${esc(n)}</span><b style="color:var(--warn)">${money(porP[n])}</b></div>`).join("");
-  const rows=(dFiltro==="pend"?pend:S.deudas.filter(d=>dSaldo(d)<=0))
+  pp.innerHTML=nombres.map(n=>`<div class="pp"><span>${esc(n)}</span><b style="color:${T.color}">${money(porP[n])}</b></div>`).join("");
+  const rows=(dFiltro==="pend"?pend:mias.filter(d=>dSaldo(d)<=0))
     .sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.creado||0)-(a.creado||0));
   $("dCount").textContent=rows.length?rows.length+" deuda"+(rows.length>1?"s":""):"";
   $("dList").innerHTML=rows.length?rows.map(d=>{
-    const saldo=dSaldo(d),pag=dPagado(d),pendSync=!!S.dqueue[d.id];
+    const saldo=dSaldo(d),pag=dPagado(d),pendSync=!!dQ(d)[d.id];
     const [y,m,dd]=d.fecha.split("-");
-    const det=pag>0?(saldo>0?` · abonó ${money(pag)} de ${money(d.monto)}`:` · pagó ${money(d.monto)}`):"";
+    const det=pag>0?" · "+(saldo>0?T.abono(pag,d.monto):T.pago(d.monto)):"";
     return `<div class="item${saldo<=0?" paid":""}" onclick="dEdit('${d.id}')">
-      <div class="i"><div class="t">${esc(d.persona)}</div><div class="s">${dd}/${m}/${y}${d.nota?" · "+esc(d.nota):""}${det}</div></div>
-      <div class="m"${saldo>0?' style="color:var(--warn)"':""}>${money(saldo>0?saldo:d.monto)}</div>
+      <div class="i"><div class="t">${esc(d.persona)}</div><div class="s">${d.tipo?esc(d.tipo)+" · ":""}${dd}/${m}/${y}${d.nota?" · "+esc(d.nota):""}${det}</div></div>
+      <div class="m"${saldo>0?` style="color:${T.color}"`:""}>${money(saldo>0?saldo:d.monto)}</div>
       ${saldo>0?`<button class="mini" onclick="event.stopPropagation();dAbonar('${d.id}')">Abonar</button>`
                :`<button class="mini" onclick="event.stopPropagation();dDeshacerAbono('${d.id}')">Deshacer</button>`}
       <div class="c" title="${pendSync?"Pendiente de subir":"En la nube"}">${pendSync?"⏳":"☁︎"}</div>
       <button onclick="event.stopPropagation();dDel('${d.id}')" aria-label="Borrar" style="border:0;background:none;color:var(--muted);font-size:18px;padding:2px 0 2px 4px">×</button>
-    </div>`;}).join(""):`<div class="empty">${dFiltro==="pend"?"Nadie te debe nada 🎉":"Aún no hay deudas pagadas"}</div>`;
+    </div>`;}).join(""):`<div class="empty">${dFiltro==="pend"?T.vacio:"Aún no hay deudas pagadas"}</div>`;
   syncStatus();
 }
 
@@ -370,7 +399,7 @@ function dRender(){
 function enqueue(id,op,r){S.queue[id]={op,r:r||null,v:Date.now()+Math.random()};persist();}
 let syncing=false;
 function syncStatus(){
-  const n=Object.keys(S.queue).length+Object.keys(S.dqueue).length,el=$("sync");
+  const n=Object.keys(S.queue).length+Object.keys(S.dqueue).length+Object.keys(S.bqueue).length,el=$("sync");
   el.className="pill";
   if(!S.cfg.url){el.classList.add("err");$("syncTxt").textContent="Sin conectar";return;}
   if(syncing){el.classList.add("wait");$("syncTxt").textContent="Subiendo…";return;}
@@ -380,7 +409,7 @@ function syncStatus(){
 async function sync(manual){
   if(syncing)return;
   if(!S.cfg.url){if(manual)openSettings();syncStatus();return;}
-  const ids=Object.keys(S.queue).length+Object.keys(S.dqueue).length;
+  const ids=Object.keys(S.queue).length+Object.keys(S.dqueue).length+Object.keys(S.bqueue).length;
   if(!ids){syncStatus();if(manual)toast("Todo está en la nube");return;}
   if(!navigator.onLine){syncStatus();if(manual)toast("Sin internet: se subirá después");return;}
   syncing=true;syncStatus();
@@ -400,14 +429,19 @@ async function sync(manual){
   };
   try{
     await subir(S.queue,{});
-    if(Object.keys(S.dqueue).length){
+    if(Object.keys(S.dqueue).length||Object.keys(S.bqueue).length){
       const ping=await post({ops:[]});
-      if(!(ping.version>=2))throw new Error("actualiza el código de tu hoja (Codigo_hoja.gs) para guardar “Me deben”");
+      const viejo="actualiza el código de tu hoja (Codigo_hoja.gs) y publica una nueva versión";
+      if(!(ping.version>=2))throw new Error(viejo);
       await subir(S.dqueue,{hoja:"deudas"});
+      if(Object.keys(S.bqueue).length){
+        if(!(ping.version>=3))throw new Error(viejo+" para guardar “Debo”");
+        await subir(S.bqueue,{hoja:"debo"});
+      }
     }
     if(manual)toast("Todo está en la nube");
   }catch(e){S.lastErr=String(e.message||e);persist();if(manual)toast("No se pudo subir: "+S.lastErr);}
-  syncing=false;render();if(vista==="deu")dRender();
+  syncing=false;render();if(vista!=="mov")dRender();
 }
 addEventListener("online",()=>sync());
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync();});
@@ -442,16 +476,16 @@ function saveCats(){
 function resyncAll(){
   if(!confirm("Se volverán a enviar todos tus movimientos a la hoja. ¿Continuar?"))return;
   S.records.forEach(r=>enqueue(r.id,"upsert",{fecha:r.fecha,tipo:r.tipo,categoria:r.categoria,monto:r.monto,nota:r.nota}));
-  S.deudas.forEach(d=>dEnqueue(d.id,"upsert",d));
+  S.deudas.forEach(d=>dEnqueue(d,"upsert"));
   render();sync(true);
 }
 function exportDeudasCsv(){
   const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  const rows=[["ID","Persona","Fecha","Monto","Abonado","Saldo","Estado","Concepto","Abonos"],...[...S.deudas].sort((a,b)=>a.fecha.localeCompare(b.fecha)).map(d=>{
+  const rows=[["ID","Sección","Persona","Tipo","Fecha","Monto","Abonado","Saldo","Estado","Concepto","Abonos"],...[...S.deudas].sort((a,b)=>a.fecha.localeCompare(b.fecha)).map(d=>{
     const p=dPayload(d),[y,m,dd]=d.fecha.split("-"),s=dSaldo(d);
-    return[d.id,`${dd}/${m}/${y}`,d.persona,d.monto,p.pagado,s,s>0?"Pendiente":"Pagada",d.nota||"",p.abonos];})];
+    return[d.id,esDebo(d)?"Debo":"Me deben",d.persona,d.tipo||"",`${dd}/${m}/${y}`,d.monto,p.pagado,s,s>0?"Pendiente":"Pagada",d.nota||"",p.abonos];})];
   const blob=new Blob(["﻿"+rows.map(r=>r.map(q).join(",")).join("\r\n")],{type:"text/csv"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="MeDeben_"+today()+".csv";document.body.appendChild(a);a.click();
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Deudas_"+today()+".csv";document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
 }
 function exportCsv(){
@@ -462,7 +496,7 @@ function exportCsv(){
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
 }
 
-renderCats();render();sync();
+renderCats();renderDTipos();render();sync();
 if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 </script>
 </body>
